@@ -45,7 +45,8 @@ from peft import LoraConfig, TaskType
 
 model_path="./output"
 peft_config = LoraConfig.from_pretrained(model_path)
-model = AutoModelForCausalLM.from_pretrained(peft_config.base_model_name_or_path, device_map="auto", torch_dtype=torch.bfloat16)
+model = AutoModelForCausalLM.from_pretrained(peft_config.base_model_name_or_path, device_map={"": 0}, torch_dtype=torch.bfloat16)
+device = "cuda"
 
 from peft import get_peft_model, PeftModel
 
@@ -57,7 +58,7 @@ model.eval()
 def predict(example):
     prompt = f"<|im_start|>system\n{example['instruction']}<|im_end|>\n<|im_start|>user\n{example['input']}<|im_end|>\n<|im_start|>assistant\n"
     
-    inputs = tokenizer(prompt, add_special_tokens=False, return_tensors="pt")
+    inputs = tokenizer(prompt, add_special_tokens=False, return_tensors="pt").to(device)
     # inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
     with torch.no_grad():
         outputs = model.generate(

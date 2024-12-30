@@ -6,35 +6,57 @@ import random
 import json
 import torch
 from transformers import Trainer, DataCollatorForSeq2Seq
+import random
+from tqdm import tqdm
 
 standard_txt = "./data/standard.txt"
 data = []
-instruction = "扮演一个飞行员监督员，请识别下面的飞行员的话语是否在闲聊，并从['闲聊', '认真工作']来匹配目前飞行员的状态。"
+instruction = "扮演一个飞行员监督员，请识别下面的飞行员的话语是否在闲聊，并从['闲聊', '认真工作']来匹配目前飞行员的状态。下面是飞行员的话语："
 with open("./data/standard.txt", "r") as f:
-    for i in f:
+    for i in tqdm(f):
         text = i.strip()
         if len(text) == 0: continue
         data.append({"instruction": instruction, "input": f"{text} 飞行员的状态是：", "output": "认真工作"})
-
+        data.append({"instruction": instruction, "input": f"{text[:max(len(text)//5, 3)]} 飞行员的状态是：", "output": "认真工作"})
+        data.append({"instruction": instruction, "input": f"{text[:max(len(text)//5*2, 3)]} 飞行员的状态是：", "output": "认真工作"})
+        data.append({"instruction": instruction, "input": f"{text[:max(len(text)//5*3, 3)]} 飞行员的状态是：", "output": "认真工作"})
+        data.append({"instruction": instruction, "input": f"{text[:max(len(text)//5*4, 3)]} 飞行员的状态是：", "output": "认真工作"})
+data = data*2
 with open("./data/other.txt", "r") as f:
-    for i in f:
+    for i in tqdm(f):
         text = i.strip()
         if len(text) == 0: continue
         data.append({"instruction": instruction, "input": f"{text} 飞行员的状态是：", "output": "闲聊"})
+        t = 0
+        while(t<10):
+            j, k = random.randint(0, len(instruction)), random.randint(0, len(instruction))
+            if j > k:
+                j, k = k, j
+            if j+2 < k:
+                data.append({"instruction": instruction, "input": f"{text[j:k]} 飞行员的状态是：", "output": "闲聊"})
+            t += 1
 
 with open("./data/other_special.txt", "r") as f:
-    for i in f:
+    for i in tqdm(f):
         text = i.strip()
         if len(text) == 0: continue
         data.append({"instruction": instruction, "input": f"{text} 飞行员的状态是：", "output": "闲聊"})
+        t = 0
+        while(t<10):
+            j, k = random.randint(0, len(instruction)), random.randint(0, len(instruction))
+            if j > k:
+                j, k = k, j
+            if j+2 < k:
+                data.append({"instruction": instruction, "input": f"{text[j:k]} 飞行员的状态是：", "output": "闲聊"})
+            t += 1
 random.shuffle(data)
 
 train_data = data[:int(0.9*len(data))]
 test_data = data[int(0.9*len(data)):]
 with open("./data/train.jsonl", 'w', encoding='utf-8') as f:
-    json.dump(train_data, f)
+    json.dump(train_data, f, ensure_ascii=False)
 with open("./data/test.jsonl", 'w', encoding='utf-8') as f:
-    json.dump(train_data, f)
+    json.dump(train_data, f, ensure_ascii=False)
     
 # 加载预训练模型和分词器
 model_name = "Qwen/Qwen2-7B"  # 替换为合适的Llama模型
@@ -88,11 +110,12 @@ model.enable_input_require_grads()
 training_args = TrainingArguments(
     output_dir="./output/",
     per_device_train_batch_size=16,
-    gradient_accumulation_steps=1,
+    gradient_accumulation_steps=8,
     logging_steps=10,
-    num_train_epochs=3,
+    num_train_epochs=1,
     save_steps=100,
-    learning_rate=1e-4,
+    learning_rate=1e-5,
+    warmup_ratio=0.03,
     save_on_each_node=True,
     gradient_checkpointing=True
 )
